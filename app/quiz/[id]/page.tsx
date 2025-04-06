@@ -1,10 +1,7 @@
 // app/quiz/[id]/page.tsx
+
 import QuizPlayerPage from './QuizPlayerPage';
 
-interface Props {
-  params: { id: string };
-}
-
-export default function Page({ params }: Props) {
+export default function Page({ params }: any) {
   return <QuizPlayerPage id={params.id} />;
 }
