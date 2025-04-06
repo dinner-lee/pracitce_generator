@@ -16,36 +16,34 @@ export default function StudentPage() {
   const [quizId, setQuizId] = useState<string>('');
   const [error, setError] = useState('');
   const [recentQuizzes, setRecentQuizzes] = useState<SavedQuiz[]>([]);
-  const [exampleQuiz, setExampleQuiz] = useState<SavedQuiz | null>(null);
   const router = useRouter();
 
-  // 최근 생성된 퀴즈 로드
+  // 저장된 퀴즈 목록 + 예시 퀴즈 불러오기
   useEffect(() => {
-    try {
-      const savedQuizzes = JSON.parse(localStorage.getItem('youtube-quizzes') || '[]');
-      setRecentQuizzes(savedQuizzes.slice(-5).reverse());
-    } catch (err) {
-      console.error('퀴즈 데이터를 불러오는 중 오류가 발생했습니다:', err);
-    }
-  }, []);
-
-  // 예시 퀴즈 로드
-  useEffect(() => {
-    const fetchExampleQuiz = async () => {
+    const fetchData = async () => {
       try {
+        // 1. 로컬 저장 퀴즈 가져오기
+        const savedQuizzes = JSON.parse(localStorage.getItem('youtube-quizzes') || '[]');
+
+        // 2. 예시 퀴즈 fetch
         const res = await fetch('/example-quiz.json');
-        if (!res.ok) throw new Error('예시 퀴즈를 불러오는 데 실패했습니다.');
-        const data = await res.json();
-        if (Array.isArray(data)) {
-          setExampleQuiz(data[0]); // 배열이면 첫 번째 요소만 사용
-        } else {
-          setExampleQuiz(data);
+        const exampleData = await res.json();
+        const example = Array.isArray(exampleData) ? exampleData[0] : exampleData;
+
+        // 3. 목록에 예시 포함 (중복 방지)
+        const existingIds = new Set(savedQuizzes.map((q: SavedQuiz) => q.id));
+        const updatedQuizzes = [...savedQuizzes.slice(-4).reverse()];
+        if (!existingIds.has(example.id)) {
+          updatedQuizzes.push(example);
         }
+
+        setRecentQuizzes(updatedQuizzes);
       } catch (err) {
-        console.error('예시 퀴즈 로딩 오류:', err);
+        console.error('퀴즈 로딩 중 오류:', err);
       }
     };
-    fetchExampleQuiz();
+
+    fetchData();
   }, []);
 
   const handleQuizIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -61,28 +59,34 @@ export default function StudentPage() {
 
     try {
       const savedQuizzes = JSON.parse(localStorage.getItem('youtube-quizzes') || '[]');
-      const quiz = savedQuizzes.find((q: SavedQuiz) => q.id === quizId);
+      const found = savedQuizzes.find((q: SavedQuiz) => q.id === quizId);
 
-      if (!quiz) {
-        setError('해당 ID의 퀴즈를 찾을 수 없습니다.');
+      if (!found) {
+        // 예시 퀴즈도 검사
+        fetch('/example-quiz.json')
+          .then(res => res.json())
+          .then(data => {
+            const example = Array.isArray(data) ? data[0] : data;
+            if (example.id === quizId) {
+              localStorage.setItem('youtube-quizzes', JSON.stringify([...savedQuizzes, example]));
+              router.push(`/quiz/${quizId}`);
+            } else {
+              setError('해당 ID의 퀴즈를 찾을 수 없습니다.');
+            }
+          })
+          .catch(() => setError('퀴즈 데이터를 불러오는 중 오류가 발생했습니다.'));
         return;
       }
 
       router.push(`/quiz/${quizId}`);
     } catch (err) {
-      console.error('퀴즈 확인 중 오류:', err);
+      console.error('퀴즈 데이터를 확인하는 중 오류가 발생했습니다:', err);
       setError('퀴즈 데이터를 확인하는 중 오류가 발생했습니다.');
     }
   };
 
   const handleRecentQuizClick = (id: string) => {
     setQuizId(id);
-  };
-
-  const handleExampleQuizClick = () => {
-    if (exampleQuiz?.id) {
-      setQuizId(exampleQuiz.id);
-    }
   };
 
   return (
@@ -93,7 +97,7 @@ export default function StudentPage() {
         <div className="bg-white p-6 rounded-lg shadow-md mb-8">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">퀴즈 시작하기</h2>
           <p className="text-gray-600 mb-4">
-            교사가 제공한 퀴즈 ID를 입력하여 학습을 시작하세요.
+            교사가 제공한 퀴즈 ID를 입력하거나, 아래에서 퀴즈를 선택하세요.
           </p>
 
           <div className="mb-4">
@@ -120,26 +124,9 @@ export default function StudentPage() {
           </button>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow-md mb-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">예시 퀴즈</h2>
-          {exampleQuiz ? (
-            <div
-              className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 cursor-pointer"
-              onClick={handleExampleQuizClick}
-            >
-              <div className="flex justify-between items-center">
-                <h3 className="font-medium text-gray-900">{exampleQuiz.title}</h3>
-                <span className="text-xs text-gray-500">ID: {exampleQuiz.id}</span>
-              </div>
-              <p className="text-sm text-gray-600 mt-1">퀴즈 {exampleQuiz.quizzes?.length || 0}개</p>
-            </div>
-          ) : (
-            <p className="text-gray-500 italic">예시 퀴즈를 불러오는 중...</p>
-          )}
-        </div>
-
         <div className="bg-white p-6 rounded-lg shadow-md">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">최근 생성된 퀴즈</h2>
+
           {recentQuizzes.length === 0 ? (
             <p className="text-gray-500 italic">아직 생성된 퀴즈가 없습니다.</p>
           ) : (
