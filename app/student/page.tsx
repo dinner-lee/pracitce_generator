@@ -19,7 +19,7 @@ export default function StudentPage() {
   const [exampleQuiz, setExampleQuiz] = useState<SavedQuiz | null>(null);
   const router = useRouter();
 
-  // 저장된 퀴즈 목록 불러오기
+  // 최근 생성된 퀴즈 로드
   useEffect(() => {
     try {
       const savedQuizzes = JSON.parse(localStorage.getItem('youtube-quizzes') || '[]');
@@ -29,16 +29,20 @@ export default function StudentPage() {
     }
   }, []);
 
-  // 예시 퀴즈 불러오기
+  // 예시 퀴즈 로드
   useEffect(() => {
     const fetchExampleQuiz = async () => {
       try {
         const res = await fetch('/example-quiz.json');
         if (!res.ok) throw new Error('예시 퀴즈를 불러오는 데 실패했습니다.');
         const data = await res.json();
-        setExampleQuiz(data);
+        if (Array.isArray(data)) {
+          setExampleQuiz(data[0]); // 배열이면 첫 번째 요소만 사용
+        } else {
+          setExampleQuiz(data);
+        }
       } catch (err) {
-        console.error(err);
+        console.error('예시 퀴즈 로딩 오류:', err);
       }
     };
     fetchExampleQuiz();
@@ -66,7 +70,7 @@ export default function StudentPage() {
 
       router.push(`/quiz/${quizId}`);
     } catch (err) {
-      console.error('퀴즈 데이터를 확인하는 중 오류가 발생했습니다:', err);
+      console.error('퀴즈 확인 중 오류:', err);
       setError('퀴즈 데이터를 확인하는 중 오류가 발생했습니다.');
     }
   };
@@ -118,7 +122,6 @@ export default function StudentPage() {
 
         <div className="bg-white p-6 rounded-lg shadow-md mb-8">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">예시 퀴즈</h2>
-
           {exampleQuiz ? (
             <div
               className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 cursor-pointer"
@@ -137,7 +140,6 @@ export default function StudentPage() {
 
         <div className="bg-white p-6 rounded-lg shadow-md">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">최근 생성된 퀴즈</h2>
-
           {recentQuizzes.length === 0 ? (
             <p className="text-gray-500 italic">아직 생성된 퀴즈가 없습니다.</p>
           ) : (
