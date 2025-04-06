@@ -6,12 +6,18 @@ import YouTube, { YouTubeEvent, YouTubePlayer } from 'react-youtube';
 interface VideoPlayerProps {
   videoId: string;
   timestamps: number[];
-  currentTimestamp: number | null; // 추가
+  currentTimestamp: number | null;
   onTimestampReached: (timestamp: number) => void;
   onVideoEnded?: () => void;
 }
 
-export default function VideoPlayer({ videoId, timestamps, currentTimestamp, onTimestampReached, onVideoEnded }: VideoPlayerProps) {
+export default function VideoPlayer({
+  videoId,
+  timestamps,
+  currentTimestamp,
+  onTimestampReached,
+  onVideoEnded,
+}: VideoPlayerProps) {
   const [player, setPlayer] = useState<YouTubePlayer | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -21,110 +27,92 @@ export default function VideoPlayer({ videoId, timestamps, currentTimestamp, onT
   const [playbackRate, setPlaybackRate] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isPlayerReady, setIsPlayerReady] = useState(false);
+  const [wasManuallyPaused, setWasManuallyPaused] = useState(false); // ⭐추가
 
   const lastCheckedTimestamp = useRef<number | null>(null);
   const sortedTimestamps = [...timestamps].sort((a, b) => a - b);
-  
-// src/components/video-player/VideoPlayer.tsx 파일 내 타임스탬프 체크 부분 수정
 
-// 타임스탬프 체크 인터벌 설정
-useEffect(() => {
-  if (player && isPlayerReady && currentTimestamp === null && !isPlaying) {
-    const iframe = player.getIframe();
-    if (iframe && iframe.src) {
-      player.playVideo();
-    }
-  }
-}, [player, isPlayerReady, currentTimestamp, isPlaying]);
-
-
-useEffect(() => {
-  const checkTimestamp = () => {
-    if (!player) return;
-
-    const currentTime = player.getCurrentTime();
-    setCurrentTime(currentTime);
-
-    // 타임스탬프 체크 (재생 중일 때만 체크)
-    if (isPlaying) {
-      for (const timestamp of sortedTimestamps) {
-        // 현재 시간이 타임스탬프를 지났고, 이전에 체크하지 않은 타임스탬프인 경우
-        // 0.5초 이내의 오차 허용
-        if (Math.abs(currentTime - timestamp) < 0.5 && 
-            lastCheckedTimestamp.current !== timestamp) {
-          
-          console.log(`타임스탬프 도달: ${timestamp}, 현재 시간: ${currentTime}`);
-          
-          // 타임스탬프 도달 이벤트 발생
-          onTimestampReached(timestamp);
-          lastCheckedTimestamp.current = timestamp;
-          
-          // 동영상 일시 중지
-          player.pauseVideo();
-          setIsPlaying(false);
-          break;
-        }
+  useEffect(() => {
+    if (player && isPlayerReady && currentTimestamp === null && !isPlaying && !wasManuallyPaused) {
+      const iframe = player.getIframe();
+      if (iframe && iframe.src) {
+        player.playVideo();
       }
     }
-  };
+  }, [player, isPlayerReady, currentTimestamp, isPlaying, wasManuallyPaused]);
 
-  // 더 짧은 간격으로 체크 (100ms)
-  const intervalId = setInterval(checkTimestamp, 100);
-  return () => clearInterval(intervalId);
-}, [player, isPlaying, sortedTimestamps, onTimestampReached]);
+  useEffect(() => {
+    const checkTimestamp = () => {
+      if (!player) return;
 
-  // YouTube 플레이어 옵션
+      const time = player.getCurrentTime();
+      setCurrentTime(time);
+
+      if (isPlaying) {
+        for (const timestamp of sortedTimestamps) {
+          if (
+            Math.abs(time - timestamp) < 0.5 &&
+            lastCheckedTimestamp.current !== timestamp
+          ) {
+            onTimestampReached(timestamp);
+            lastCheckedTimestamp.current = timestamp;
+            player.pauseVideo();
+            setIsPlaying(false);
+            setWasManuallyPaused(false); // ⭐자동으로 멈춘 경우는 수동 아님
+            break;
+          }
+        }
+      }
+    };
+
+    const intervalId = setInterval(checkTimestamp, 100);
+    return () => clearInterval(intervalId);
+  }, [player, isPlaying, sortedTimestamps, onTimestampReached]);
+
   const opts = {
     height: '480',
     width: '100%',
     playerVars: {
       autoplay: 0,
-      controls: 0, // 기본 컨트롤 숨김
-      disablekb: 1, // 키보드 컨트롤 비활성화
-      fs: 0, // 전체화면 버튼 숨김
+      controls: 0,
+      disablekb: 1,
+      fs: 0,
       modestbranding: 1,
       rel: 0,
-      showinfo: 0
+      showinfo: 0,
     },
   };
-  
-  // 플레이어 준비 완료 시 호출
+
   const onReady = (event: YouTubeEvent) => {
     setPlayer(event.target);
     setDuration(event.target.getDuration());
-    setIsPlayerReady(true); // 추가된 부분
+    setIsPlayerReady(true);
   };
-  
-  
-  // 플레이어 상태 변경 시 호출
+
   const onStateChange = (event: YouTubeEvent) => {
-    // 재생 중
     if (event.data === 1) {
       setIsPlaying(true);
-    }
-    // 일시 중지
-    else if (event.data === 2) {
+    } else if (event.data === 2) {
       setIsPlaying(false);
-    }
-    // 종료
-    else if (event.data === 0) {
+    } else if (event.data === 0) {
       setIsPlaying(false);
       if (onVideoEnded) {
         onVideoEnded();
       }
     }
   };
-  
-  // 재생/일시 중지 토글
+
   const togglePlay = () => {
     if (!player) return;
-    
+
     if (isPlaying) {
       player.pauseVideo();
+      setWasManuallyPaused(true); // ⭐사용자 수동 일시정지
     } else {
       player.playVideo();
+      setWasManuallyPaused(false); // ⭐사용자 수동 재생
     }
-    
+
     setIsPlaying(!isPlaying);
   };
   
