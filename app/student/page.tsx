@@ -33,10 +33,31 @@ export default function StudentPage() {
     setError('');
   };
 
-  const handleStartQuiz = () => {
+  const handleStartQuiz = async () => {
     if (!quizId.trim()) {
       setError('퀴즈 ID를 입력해주세요.');
       return;
+    }
+
+    // 예시 퀴즈: 서버에서 JSON fetch 시도
+    if (quizId === 'example') {
+      try {
+        const res = await fetch('/example-quiz.json');
+        if (!res.ok) throw new Error('응답 실패');
+        const data = await res.json();
+
+        // ID가 정확한지 다시 확인
+        if (data?.id === 'example') {
+          router.push(`/quiz/${quizId}`);
+        } else {
+          setError('예시 퀴즈 데이터를 불러오지 못했습니다.');
+        }
+        return;
+      } catch (err) {
+        console.error(err);
+        setError('예시 퀴즈 데이터를 불러오는 데 실패했습니다.');
+        return;
+      }
     }
 
     // 로컬 스토리지에서 해당 ID의 퀴즈 확인
@@ -59,6 +80,7 @@ export default function StudentPage() {
 
   const handleRecentQuizClick = (id: string) => {
     setQuizId(id);
+    setError('');
   };
 
   return (
@@ -100,9 +122,9 @@ export default function StudentPage() {
           <h2 className="text-xl font-semibold text-gray-900 mb-4">최근 생성된 퀴즈</h2>
           
           {recentQuizzes.length === 0 ? (
-            <p className="text-gray-500 italic">아직 생성된 퀴즈가 없습니다.</p>
+            <p className="text-gray-500 italic mb-4">아직 생성된 퀴즈가 없습니다.</p>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-3 mb-6">
               {recentQuizzes.map((quiz) => (
                 <div 
                   key={quiz.id} 
@@ -118,6 +140,18 @@ export default function StudentPage() {
               ))}
             </div>
           )}
+
+          {/* 예시 퀴즈 */}
+          <div 
+            className="border border-dashed border-blue-300 rounded-lg p-4 bg-blue-50 hover:bg-blue-100 cursor-pointer"
+            onClick={() => handleRecentQuizClick('example')}
+          >
+            <div className="flex justify-between items-center">
+              <h3 className="font-medium text-blue-800">교수체제설계</h3>
+              <span className="text-xs text-blue-600">ID: example</span>
+            </div>
+            <p className="text-sm text-blue-700 mt-1">교수체제설계의 특성과 여러 모형을 비교하여 설명할 수 있다.</p>
+          </div>
         </div>
       </div>
     </Layout>
