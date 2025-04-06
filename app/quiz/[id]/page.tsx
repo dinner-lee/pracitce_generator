@@ -8,7 +8,7 @@ import QuizContainer, { Quiz } from '@/components/quiz/quiz-container';
 import { formatTime } from '@/lib/youtube-utils';
 
 export default function QuizPlayerPage({ params }: { params: { id: string } }) {
-  const unwrappedParams = use(params);
+  const quizId = params.id;
   
   const [quizData, setQuizData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -23,7 +23,7 @@ export default function QuizPlayerPage({ params }: { params: { id: string } }) {
     try {
       // 로컬 스토리지에서 퀴즈 데이터 로드
       const savedQuizzes = JSON.parse(localStorage.getItem('youtube-quizzes') || '[]');
-      const quiz = savedQuizzes.find((q: any) => q.id === unwrappedParams.id);
+      const quiz = savedQuizzes.find((q: any) => q.id === quizId);
       
       if (quiz) {
         setQuizData(quiz);
